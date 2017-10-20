@@ -1,0 +1,42 @@
+Parameters:
+  Name:
+    Type: String
+    Default: StandAlone-SecurityGroup
+    
+  VpcId: 
+    Type: AWS::EC2::VPC::Id
+    
+  CidrIp:
+    Type: String
+    Default: 0.0.0.0/0
+    
+  IpProtocol: 
+    Type: String
+    Default: TCP
+    
+  FromPort: 
+    Type: Number
+    Default: 80
+
+  ToPort: 
+    Type: Number
+    Default: 80
+ 
+Resources:
+  SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub ${Name}-alb
+      SecurityGroupIngress:
+        - CidrIp: !Ref CidrIp
+          IpProtocol: !Ref IpProtocol
+          FromPort: !Ref FromPort
+          ToPort: !Ref ToPort
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Ref Name
+
+Outputs:
+   SecurityGroup:
+      Value: !Ref SecurityGroup

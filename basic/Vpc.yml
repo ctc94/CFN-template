@@ -56,6 +56,7 @@ Resources:
       TemplateURL: !Sub ${S3TemplateUrl}/basic/Subnet.yml
       Parameters:
         Name: !Ref Name
+        VpcId: !Ref VPC
         idx: 0
         SubnetCIDR: !Ref Subnet1CIDR
         RouteTableId: !GetAtt RouteTable.Outputs.RouteTableId
@@ -66,6 +67,7 @@ Resources:
       TemplateURL: !Sub ${S3TemplateUrl}/basic/Subnet.yml
       Parameters:
         Name: !Ref Name
+        VpcId: !Ref VPC
         idx: 1
         SubnetCIDR: !Ref Subnet2CIDR
         RouteTableId: !GetAtt RouteTable.Outputs.RouteTableId
@@ -76,6 +78,7 @@ Resources:
       TemplateURL: !Sub ${S3TemplateUrl}/basic/Subnet.yml
       Parameters:
         Name: !Ref Name
+        VpcId: !Ref VPC
         idx: 2
         SubnetCIDR: !Ref Subnet3CIDR
         RouteTableId: !GetAtt RouteTable.Outputs.RouteTableId

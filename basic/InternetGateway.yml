@@ -1,9 +1,10 @@
 Parameters:
   Name:
     Type: String
-
+    Default: StandAlone-InternetGateway
+    
   VpcId:
-    Type: String
+    Type: AWS::EC2::VPC::Id
     
 Resources:
   InternetGateway:
@@ -13,7 +14,7 @@ Resources:
         - Key: Name
           Value: !Ref Name
 
-  InternetGatewayAttachment:
+  VPCGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       InternetGatewayId: !Ref InternetGateway

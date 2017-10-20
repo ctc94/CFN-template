@@ -1,9 +1,10 @@
 Parameters:
   Name:
     Type: String
+    Default: StandAlone-RouteTable
     
   VpcId:
-    Type: String
+    Type: AWS::EC2::VPC::Id
 
   GatewayId:
     Type: String
