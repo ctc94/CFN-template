@@ -1,0 +1,87 @@
+Parameters:
+  Name:
+    Type: String
+    Default: Basic-Vpc-Stack
+
+  VpcCIDR:
+    Type: String
+    Default: 10.215.0.0/16
+
+  Subnet1CIDR:
+    Type: String
+    Default: 10.215.0.0/24
+
+  Subnet2CIDR:
+    Type: String
+    Default: 10.215.10.0/24
+    
+  Subnet3CIDR:
+    Type: String
+    Default: 10.215.20.0/24
+  
+  S3TemplateUrl:
+    Type: String
+    Default: https://s3-ap-southeast-2.amazonaws.com/cfn-template-ctc94
+    Description: S3Template directory.
+    
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      Tags:
+        - Key: Name
+          Value: !Ref Name
+
+  InternetGateway:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/InternetGateway.yml
+      Parameters:
+        Name: !Ref Name
+        VpcId: !Ref VPC
+        
+  RouteTable:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/RouteTable.yml
+      Parameters:
+        Name: !Ref Name
+        VpcId: !Ref VPC
+        GatewayId: !GetAtt InternetGateway.Outputs.GatewayId
+        
+  Subnet1:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/Subnet.yml
+      Parameters:
+        Name: !Ref Name
+        idx: 0
+        SubnetCIDR: !Ref Subnet1CIDR
+        RouteTableId: !GetAtt RouteTable.Outputs.RouteTableId
+        
+  Subnet2:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/Subnet.yml
+      Parameters:
+        Name: !Ref Name
+        idx: 1
+        SubnetCIDR: !Ref Subnet2CIDR
+        RouteTableId: !GetAtt RouteTable.Outputs.RouteTableId
+        
+  Subnet3:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/Subnet.yml
+      Parameters:
+        Name: !Ref Name
+        idx: 2
+        SubnetCIDR: !Ref Subnet3CIDR
+        RouteTableId: !GetAtt RouteTable.Outputs.RouteTableId
+
+Outputs:
+  Subnets:
+    Value: !Join [ ",", [ !GetAtt Subnet1.Outputs.SubnetId, !GetAtt Subnet2.Outputs.SubnetId, !GetAtt Subnet3.Outputs.SubnetId ] ]
+  VpcId:
+    Value: !Ref VPC

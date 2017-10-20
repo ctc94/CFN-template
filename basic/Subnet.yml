@@ -1,0 +1,34 @@
+Parameters:
+  Name:
+    Type: String
+    
+  idx:
+    Type: Number
+    
+  SubnetCIDR:
+    Type: String
+
+  RouteTableId:
+    Type: String
+ 
+Resources:
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ !Ref idx, !GetAZs ]
+      MapPublicIpOnLaunch: true
+      CidrBlock: !Ref SubnetCIDR
+      Tags:
+        - Key: Name
+          Value: !Sub ${Name} (Public)
+          
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTableId
+      SubnetId: !Ref Subnet
+
+Outputs:
+   SubnetId:
+      Value: !Ref Subnet

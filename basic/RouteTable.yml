@@ -1,0 +1,29 @@
+Parameters:
+  Name:
+    Type: String
+    
+  VpcId:
+    Type: String
+
+  GatewayId:
+    Type: String
+ 
+Resources:
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Ref Name
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref GatewayId
+
+Outputs:
+   RouteTableId:
+      Value: !Ref RouteTable
