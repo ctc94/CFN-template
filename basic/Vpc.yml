@@ -1,7 +1,7 @@
 Parameters:
   Name:
     Type: String
-    Default: Basic-Vpc-Stack
+    Default: Basic-Vpc-Stack1
 
   VpcCIDR:
     Type: String
