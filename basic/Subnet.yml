@@ -1,6 +1,7 @@
 Parameters:
   Name:
     Type: String
+    Default: StandAlone-SUBNET
     
   VpcId:
     Type: String
@@ -24,7 +25,7 @@ Resources:
       CidrBlock: !Ref SubnetCIDR
       Tags:
         - Key: Name
-          Value: !Sub ${Name} (Public)
+          Value: !Ref Name
           
   SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation

@@ -1,0 +1,66 @@
+Description: >
+  Ecs standAlone(VPC, ELB, ECS)
+
+
+Parameters:
+
+  VpcCIDR:
+    Type: String
+    Default: 10.215.0.0/16
+
+  Subnet1CIDR:
+    Type: String
+    Default: 10.215.0.0/24
+
+  Subnet2CIDR:
+    Type: String
+    Default: 10.215.10.0/24
+    
+  Subnet3CIDR:
+    Type: String
+    Default: 10.215.20.0/24
+  
+  S3TemplateUrl:
+    Type: String
+    Default: https://s3-ap-southeast-2.amazonaws.com/cfn-template-ctc94
+    Description: S3Template directory.
+
+Resources:
+  VPC: 
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/Vpc.yml
+      Parameters:
+        Name: !Ref AWS::StackName
+        VpcCIDR: !Ref VpcCIDR
+        Subnet1CIDR: !Ref Subnet1CIDR
+        Subnet2CIDR: !Ref Subnet2CIDR
+        Subnet3CIDR: !Ref Subnet3CIDR
+        S3TemplateUrl: !Ref S3TemplateUrl
+        
+  LoadBalancer:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/LoadBalancer.yml
+      Parameters:
+        Name: !Ref AWS::StackName
+        Subnets: !GetAtt VPC.Outputs.Subnets
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        S3TemplateUrl: !Ref S3TemplateUrl
+        
+  Cluster:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/Ecs.yml
+      Parameters:
+        SourceSecurityGroup: !GetAtt LoadBalancer.Outputs.SecurityGroup
+        Subnets: !GetAtt VPC.Outputs.Subnets
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        InstanceType: t2.large
+        ClusterSize: 1
+        S3TemplateUrl: !Ref S3TemplateUrl
+        
+Outputs:
+  ServiceUrl:
+    Description: The sample service that is being continuously deployed.
+    Value: !GetAtt LoadBalancer.Outputs.ServiceUrl

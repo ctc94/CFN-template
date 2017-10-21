@@ -15,6 +15,11 @@ Parameters:
 
   VpcId:
     Type: AWS::EC2::VPC::Id
+  
+  S3TemplateUrl:
+    Type: String
+    Default: https://s3-ap-southeast-2.amazonaws.com/cfn-template-ctc94
+    Description: S3Template directory.
 
 
 Mappings:
@@ -44,27 +49,13 @@ Mappings:
 
 
 Resources:
-  ECSRole:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: /
-      AssumeRolePolicyDocument: |
-        {
-            "Statement": [{
-                "Effect": "Allow",
-                "Principal": { "Service": [ "ec2.amazonaws.com" ]},
-                "Action": [ "sts:AssumeRole" ]
-            }]
-        }
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
-
   InstanceProfile:
-    Type: AWS::IAM::InstanceProfile
+    Type: AWS::CloudFormation::Stack
     Properties:
-      Path: /
-      Roles:
-        - !Ref ECSRole
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/InstanceProfile.yml
+      Parameters:
+        Service: ec2.amazonaws.com
+        ManagedPolicy: AmazonEC2ContainerServiceforEC2Role
 
   SecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
@@ -114,7 +105,7 @@ Resources:
     Properties:
       ImageId: !FindInMap [ AWSRegionToAMI, !Ref "AWS::Region", AMI ]
       InstanceType: !Ref InstanceType
-      IamInstanceProfile: !Ref InstanceProfile
+      IamInstanceProfile: !GetAtt InstanceProfile.Outputs.InstanceProfile
       SecurityGroups:
         - !Ref SecurityGroup
       UserData:

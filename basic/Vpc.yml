@@ -1,7 +1,7 @@
 Parameters:
   Name:
     Type: String
-    Default: Basic-Vpc-Stack1
+    Default: StandAlone-VPC
 
   VpcCIDR:
     Type: String
@@ -55,7 +55,7 @@ Resources:
     Properties:
       TemplateURL: !Sub ${S3TemplateUrl}/basic/Subnet.yml
       Parameters:
-        Name: !Ref Name
+        Name: !Sub ${Name} (public1)
         VpcId: !Ref VPC
         idx: 0
         SubnetCIDR: !Ref Subnet1CIDR
@@ -66,7 +66,7 @@ Resources:
     Properties:
       TemplateURL: !Sub ${S3TemplateUrl}/basic/Subnet.yml
       Parameters:
-        Name: !Ref Name
+        Name: !Sub ${Name} (public2)
         VpcId: !Ref VPC
         idx: 1
         SubnetCIDR: !Ref Subnet2CIDR
@@ -77,7 +77,7 @@ Resources:
     Properties:
       TemplateURL: !Sub ${S3TemplateUrl}/basic/Subnet.yml
       Parameters:
-        Name: !Ref Name
+        Name: !Sub ${Name} (public3)
         VpcId: !Ref VPC
         idx: 2
         SubnetCIDR: !Ref Subnet3CIDR

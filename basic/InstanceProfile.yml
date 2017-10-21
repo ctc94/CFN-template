@@ -1,0 +1,36 @@
+Parameters:    
+  ManagedPolicy:
+    Type: String
+    Default: AmazonEC2ContainerServiceforEC2Role
+    
+  Service:
+    Type: String
+    Default: ec2.amazonaws.com
+    
+Resources:
+  
+  ServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument: !Sub |
+        {
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": { "Service": [ "${Service}" ]},
+                "Action": [ "sts:AssumeRole" ]
+            }]
+        }
+      ManagedPolicyArns:
+        - !Sub arn:aws:iam::aws:policy/service-role/${ManagedPolicy}
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref ServiceRole
+
+Outputs: 
+  InstanceProfile: 
+      Value: !Ref InstanceProfile
