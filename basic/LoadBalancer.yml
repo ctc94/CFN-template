@@ -1,3 +1,6 @@
+Description: >
+  LoadBalancer + SecurityGroup + TargetGroup + LoadBalancerListener + ListenerRule
+
 Parameters:
   Name:
     Type: String
@@ -122,6 +125,9 @@ Outputs:
   TargetGroup:
     Value: !Ref TargetGroup
 
+  ElbPort:
+    Value: !Ref ElbPort
+    
   ServiceUrl:
     Description: URL of the load balancer for the sample service.
     Value: !Sub http://${LoadBalancer.DNSName}

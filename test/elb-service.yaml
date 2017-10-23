@@ -1,0 +1,63 @@
+Description: >
+  /basic/LoadBalancer.yml & /basic/Service.yml
+
+Parameters:
+  ElbPort:
+    Type: Number
+    Default: 80
+    
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    
+  Cluster:
+    Type: String
+    Default: default
+    
+  Repository:
+    Type: String
+    Default: gs-spring-boot-docker
+    
+  ContainerName:
+    Type: String
+    Default: springBootApp
+    
+  S3TemplateUrl:
+    Type: String
+    Default: https://s3-ap-southeast-2.amazonaws.com/cfn-template-ctc94
+    Description: S3Template directory.
+
+Resources:
+        
+  LoadBalancer:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/LoadBalancer.yml
+      Parameters:
+        Name: !Ref AWS::StackName
+        ElbPort: !Ref ElbPort
+        Subnets: !Join [ ",", !Ref Subnets ]
+        VpcId: !Ref VpcId
+        S3TemplateUrl: !Ref S3TemplateUrl
+        
+  Service:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/Service.yml
+      Parameters:
+#        Name: !Ref AWS::StackName
+        ElbPort: !GetAtt LoadBalancer.Outputs.ElbPort
+        ContainerPort: 8080
+        DesiredCount: 1
+        TargetGroup: !GetAtt LoadBalancer.Outputs.TargetGroup
+        Cluster: !Ref Cluster
+        Repository: !Ref Repository
+        ContainerName: !Ref ContainerName
+        S3TemplateUrl: !Ref S3TemplateUrl
+        
+Outputs:
+  ServiceUrl:
+    Description: The sample service that is being continuously deployed.
+    Value: !GetAtt LoadBalancer.Outputs.ServiceUrl

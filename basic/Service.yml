@@ -1,6 +1,13 @@
+Description: >
+  ServiceRole + TaskDefinition + Service
+
 Parameters: 
 
   ElbPort: 
+    Type: Number
+    Default: 80
+    
+  ContainerPort: 
     Type: Number
     Default: 80
     
@@ -23,7 +30,7 @@ Parameters:
   
   ContainerName: 
     Type: String
-    Default: springboot-app
+    Default: springBootApp
   
     
   S3TemplateUrl:
@@ -53,10 +60,11 @@ Resources:
           Cpu: "10"
           PortMappings: 
             - 
-              ContainerPort: 80
-              HostPort: 80
+              ContainerPort: !Ref ContainerPort
+              HostPort: !Ref ElbPort
           EntryPoint: 
             - "java"
+            - !Sub "-Dserver.port=${ContainerPort}"
             - "-jar"
             - "/app.jar"
           Memory: "500"
@@ -85,10 +93,10 @@ Resources:
     Properties:
       ServiceName: basicService
       Cluster: !Ref Cluster
-      Role: !GetAtt ServiceRole.Outputs.ServiceRole
+      Role: !GetAtt ServiceRole.Outputs.Role
       DesiredCount: !Ref DesiredCount
       TaskDefinition: !Ref TaskDefinition
       LoadBalancers:
         - ContainerName: !Ref ContainerName
-          ContainerPort: 80
+          ContainerPort:  !Ref ContainerPort
           TargetGroupArn: !Ref TargetGroup

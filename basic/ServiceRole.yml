@@ -1,3 +1,6 @@
+Description: >
+  AWS::IAM::Role
+  
 Parameters:    
   ManagedPolicy:
     Type: String

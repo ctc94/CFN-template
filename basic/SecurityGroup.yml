@@ -1,3 +1,6 @@
+Description: >
+  SecurityGroup
+  
 Parameters:
   Name:
     Type: String
