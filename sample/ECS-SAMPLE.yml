@@ -1,0 +1,507 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS CloudFormation template to create a new ECS First Run stack
+Parameters:
+  EcsAmiId:
+    Type: String
+    Description: ECS AMI Id
+  EcsInstanceType:
+    Type: String
+    Description: ECS EC2 instance type
+    Default: t2.micro
+    ConstraintDescription: must be a valid EC2 instance type.
+  KeyName:
+    Type: String
+    Description: >-
+      Optional - Name of an existing EC2 KeyPair to enable SSH access to the ECS
+      instances
+    Default: ''
+  AsgMaxSize:
+    Type: Number
+    Description: Maximum size and initial Desired Capacity of ECS Auto Scaling Group
+    Default: '1'
+  IamRoleInstanceProfile:
+    Type: String
+    Description: >-
+      Name or the Amazon Resource Name (ARN) of the instance profile associated
+      with the IAM role for the instance
+  EcsClusterName:
+    Type: String
+    Description: ECS Cluster Name
+    Default: default
+  EcsPort:
+    Type: String
+    Description: >-
+      Optional - Security Group port to open on ECS instances - defaults to port
+      80
+    Default: '80'
+  ElbPort:
+    Type: String
+    Description: >-
+      Optional - Security Group port to open on ELB - port 80 will be open by
+      default
+    Default: '80'
+  ElbHealthCheckTarget:
+    Type: String
+    Description: 'Optional - Health Check Target for ELB - defaults to HTTP:80/'
+    Default: 'HTTP:80/'
+  TargetGroupName:
+    Type: String
+    Description: The target group name
+    Default: ECSFirstRunTargetGroup
+  SourceCidr:
+    Type: String
+    Description: Optional - CIDR/IP range for EcsPort and ElbPort - defaults to 0.0.0.0/0
+    Default: 0.0.0.0/0
+  EcsEndpoint:
+    Type: String
+    Description: 'Optional : ECS Endpoint for the ECS Agent to connect to'
+    Default: ''
+  CreateElasticLoadBalancer:
+    Type: String
+    Description: 'Optional : When set to true, creates a ELB for ECS Service'
+    Default: 'false'
+  VpcAvailabilityZones:
+    Type: CommaDelimitedList
+    Description: >-
+      Optional : Comma-delimited list of two VPC availability zones in which to
+      create subnets
+    Default: ''
+  VpcCidrBlock:
+    Type: String
+    Description: Optional - CIDR/IP range for the VPC
+    Default: 10.0.0.0/16
+  SubnetCidrBlock1:
+    Type: String
+    Description: Optional - CIDR/IP range for the VPC
+    Default: 10.0.0.0/24
+  SubnetCidrBlock2:
+    Type: String
+    Description: Optional - CIDR/IP range for the VPC
+    Default: 10.0.1.0/24
+Conditions:
+  SetEndpointToECSAgent: !Not 
+    - !Equals 
+      - !Ref EcsEndpoint
+      - ''
+  UseDynamicPorts: !Equals 
+    - !Ref EcsPort
+    - '0'
+  CreateELB: !Equals 
+    - !Ref CreateElasticLoadBalancer
+    - 'true'
+  CreateEC2LCWithKeyPair: !Not 
+    - !Equals 
+      - !Ref KeyName
+      - ''
+  UseSpecifiedVpcAvailabilityZones: !Not 
+    - !Equals 
+      - !Join 
+        - ''
+        - !Ref VpcAvailabilityZones
+      - ''
+Resources:
+  Vpc:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 1e6be328-7a05-4af3-9c02-5a96ec61543b
+  PubSubnetAz1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref SubnetCidrBlock1
+      AvailabilityZone: !If 
+        - UseSpecifiedVpcAvailabilityZones
+        - !Select 
+          - '0'
+          - !Ref VpcAvailabilityZones
+        - !Select 
+          - '0'
+          - !GetAZs 
+            Ref: 'AWS::Region'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 0e9bf7d0-abd1-4603-8ef9-2df438b6372b
+  PubSubnetAz2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref SubnetCidrBlock2
+      AvailabilityZone: !If 
+        - UseSpecifiedVpcAvailabilityZones
+        - !Select 
+          - '1'
+          - !Ref VpcAvailabilityZones
+        - !Select 
+          - '1'
+          - !GetAZs 
+            Ref: 'AWS::Region'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: d57f1ece-97ae-4047-a029-3529ac43d4df
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: fa332d7f-b0f1-4ec9-becf-c5bd025692b8
+  AttachGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 5a5ea899-9718-4360-a67a-a1c28455fbc2
+  RouteViaIgw:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref Vpc
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: f3beb271-332b-4751-b330-04114b4ba8c4
+  PublicRouteViaIgw:
+    Type: 'AWS::EC2::Route'
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref RouteViaIgw
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 1a82cd59-ba00-4f2b-9922-c3842c71a0d1
+  PubSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PubSubnetAz1
+      RouteTableId: !Ref RouteViaIgw
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 414c63a0-806f-4d4f-af09-4cf2aef12596
+  PubSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PubSubnetAz2
+      RouteTableId: !Ref RouteViaIgw
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: c0871d08-176f-4d48-8c35-716fdf4dc102
+  EcsSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: ECS Allowed Ports
+      VpcId: !Ref Vpc
+      SecurityGroupIngress: !If 
+        - CreateELB
+        - - IpProtocol: tcp
+            FromPort: '1'
+            ToPort: '65535'
+            SourceSecurityGroupId: !Ref AlbSecurityGroup
+        - - IpProtocol: tcp
+            FromPort: !If 
+              - UseDynamicPorts
+              - '49153'
+              - !Ref EcsPort
+            ToPort: !If 
+              - UseDynamicPorts
+              - '65535'
+              - !Ref EcsPort
+            CidrIp: !Ref SourceCidr
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 48f31d6f-1eb5-4241-9c31-e4186143dffe
+  AlbSecurityGroup:
+    Condition: CreateELB
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: ELB Allowed Ports
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ElbPort
+          ToPort: !Ref ElbPort
+          CidrIp: !Ref SourceCidr
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: daef15e1-422e-4d15-ab2e-87d3480dd522
+  DefaultTargetGroup:
+    Condition: CreateELB
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Name: !Ref TargetGroupName
+      VpcId: !Ref Vpc
+      Port: !Ref ElbPort
+      Protocol: HTTP
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: af4b0c28-cae0-4a4c-bdd0-f06688871a5e
+  EcsElasticLoadBalancer:
+    Condition: CreateELB
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Name: ECS-first-run-alb
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+      Subnets:
+        - !Ref PubSubnetAz1
+        - !Ref PubSubnetAz2
+      Scheme: internet-facing
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: b7fe679c-1eda-4ad2-a7fd-e8150a5e3e42
+  LoadBalancerListener:
+    Condition: CreateELB
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref EcsElasticLoadBalancer
+      Port: !Ref ElbPort
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref DefaultTargetGroup
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 1aecff4c-b69c-4b68-9c21-5c0b03230ab2
+  EcsInstanceLc:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      ImageId: !Ref EcsAmiId
+      InstanceType: !Ref EcsInstanceType
+      AssociatePublicIpAddress: true
+      IamInstanceProfile: !Ref IamRoleInstanceProfile
+      KeyName: !If 
+        - CreateEC2LCWithKeyPair
+        - !Ref KeyName
+        - !Ref 'AWS::NoValue'
+      SecurityGroups:
+        - !Ref EcsSecurityGroup
+      UserData: !If 
+        - SetEndpointToECSAgent
+        - !Base64 
+          'Fn::Join':
+            - ''
+            - - |
+                #!/bin/bash
+              - echo ECS_CLUSTER=
+              - !Ref EcsClusterName
+              - ' >> /etc/ecs/ecs.config'
+              - |-
+
+                echo ECS_BACKEND_HOST=
+              - !Ref EcsEndpoint
+              - ' >> /etc/ecs/ecs.config'
+        - !Base64 
+          'Fn::Join':
+            - ''
+            - - |
+                #!/bin/bash
+              - echo ECS_CLUSTER=
+              - !Ref EcsClusterName
+              - ' >> /etc/ecs/ecs.config'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: e8753054-ebb8-4435-be4e-20fd105c61f3
+  EcsInstanceAsg:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      VPCZoneIdentifier:
+        - !Join 
+          - ','
+          - - !Ref PubSubnetAz1
+            - !Ref PubSubnetAz2
+      LaunchConfigurationName: !Ref EcsInstanceLc
+      MinSize: '0'
+      MaxSize: !Ref AsgMaxSize
+      DesiredCapacity: !Ref AsgMaxSize
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - 'ECS Instance - '
+              - !Ref 'AWS::StackName'
+          PropagateAtLaunch: 'true'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 7744cffc-b664-4e7d-a3aa-ba6bb08611f2
+Outputs:
+  EcsInstanceAsgName:
+    Description: Auto Scaling Group Name for ECS Instances
+    Value: !Ref EcsInstanceAsg
+  EcsElbName:
+    Description: Load Balancer for ECS Service
+    Value: !If 
+      - CreateELB
+      - !Ref EcsElasticLoadBalancer
+      - ''
+Metadata:
+  'AWS::CloudFormation::Designer':
+    fa332d7f-b0f1-4ec9-becf-c5bd025692b8:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 60
+        'y': 660
+      z: 1
+      embeds: []
+    1e6be328-7a05-4af3-9c02-5a96ec61543b:
+      size:
+        width: 600
+        height: 510
+      position:
+        x: 130
+        'y': 120
+      z: 1
+      embeds:
+        - daef15e1-422e-4d15-ab2e-87d3480dd522
+        - 48f31d6f-1eb5-4241-9c31-e4186143dffe
+        - f3beb271-332b-4751-b330-04114b4ba8c4
+        - d57f1ece-97ae-4047-a029-3529ac43d4df
+        - 0e9bf7d0-abd1-4603-8ef9-2df438b6372b
+    af4b0c28-cae0-4a4c-bdd0-f06688871a5e:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 180
+        'y': 660
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 1e6be328-7a05-4af3-9c02-5a96ec61543b
+    daef15e1-422e-4d15-ab2e-87d3480dd522:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 160
+        'y': 480
+      z: 2
+      parent: 1e6be328-7a05-4af3-9c02-5a96ec61543b
+      embeds: []
+    48f31d6f-1eb5-4241-9c31-e4186143dffe:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 280
+        'y': 480
+      z: 2
+      parent: 1e6be328-7a05-4af3-9c02-5a96ec61543b
+      embeds: []
+      isrelatedto:
+        - daef15e1-422e-4d15-ab2e-87d3480dd522
+    e8753054-ebb8-4435-be4e-20fd105c61f3:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 300
+        'y': 660
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 48f31d6f-1eb5-4241-9c31-e4186143dffe
+    f3beb271-332b-4751-b330-04114b4ba8c4:
+      size:
+        width: 240
+        height: 240
+      position:
+        x: 160
+        'y': 180
+      z: 2
+      parent: 1e6be328-7a05-4af3-9c02-5a96ec61543b
+      embeds:
+        - 1a82cd59-ba00-4f2b-9922-c3842c71a0d1
+    5a5ea899-9718-4360-a67a-a1c28455fbc2:
+      source:
+        id: fa332d7f-b0f1-4ec9-becf-c5bd025692b8
+      target:
+        id: 1e6be328-7a05-4af3-9c02-5a96ec61543b
+    1a82cd59-ba00-4f2b-9922-c3842c71a0d1:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 190
+        'y': 240
+      z: 3
+      parent: f3beb271-332b-4751-b330-04114b4ba8c4
+      embeds: []
+      references:
+        - fa332d7f-b0f1-4ec9-becf-c5bd025692b8
+      dependson:
+        - 5a5ea899-9718-4360-a67a-a1c28455fbc2
+    d57f1ece-97ae-4047-a029-3529ac43d4df:
+      size:
+        width: 150
+        height: 150
+      position:
+        x: 460
+        'y': 390
+      z: 2
+      parent: 1e6be328-7a05-4af3-9c02-5a96ec61543b
+      embeds: []
+    c0871d08-176f-4d48-8c35-716fdf4dc102:
+      source:
+        id: f3beb271-332b-4751-b330-04114b4ba8c4
+      target:
+        id: d57f1ece-97ae-4047-a029-3529ac43d4df
+    0e9bf7d0-abd1-4603-8ef9-2df438b6372b:
+      size:
+        width: 150
+        height: 150
+      position:
+        x: 460
+        'y': 180
+      z: 2
+      parent: 1e6be328-7a05-4af3-9c02-5a96ec61543b
+      embeds: []
+    7744cffc-b664-4e7d-a3aa-ba6bb08611f2:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 420
+        'y': 660
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - e8753054-ebb8-4435-be4e-20fd105c61f3
+      isrelatedto:
+        - 0e9bf7d0-abd1-4603-8ef9-2df438b6372b
+        - d57f1ece-97ae-4047-a029-3529ac43d4df
+    b7fe679c-1eda-4ad2-a7fd-e8150a5e3e42:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 540
+        'y': 660
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - 0e9bf7d0-abd1-4603-8ef9-2df438b6372b
+        - d57f1ece-97ae-4047-a029-3529ac43d4df
+        - daef15e1-422e-4d15-ab2e-87d3480dd522
+    1aecff4c-b69c-4b68-9c21-5c0b03230ab2:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 660
+        'y': 660
+      z: 1
+      embeds: []
+      isassociatedwith:
+        - b7fe679c-1eda-4ad2-a7fd-e8150a5e3e42
+      isrelatedto:
+        - af4b0c28-cae0-4a4c-bdd0-f06688871a5e
+    414c63a0-806f-4d4f-af09-4cf2aef12596:
+      source:
+        id: f3beb271-332b-4751-b330-04114b4ba8c4
+      target:
+        id: 0e9bf7d0-abd1-4603-8ef9-2df438b6372b

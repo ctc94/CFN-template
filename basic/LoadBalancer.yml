@@ -3,6 +3,10 @@ Parameters:
     Type: String
     Default: StandAlone-LoadBalancer
     
+  ElbPort:
+    Type: Number
+    Default: 80
+    
   VpcId:
     Type: AWS::EC2::VPC::Id
 
@@ -25,9 +29,22 @@ Resources:
         VpcId: !Ref VpcId
         CidrIp: 0.0.0.0/0
         IpProtocol: TCP
-        FromPort: 80
-        ToPort: 80
-
+        FromPort: !Ref ElbPort
+        ToPort: !Ref ElbPort
+        
+        
+#  로드벨런싱[SecurityGroup,Subnets]
+#  EcsElasticLoadBalancer:
+#    Condition: CreateELB
+#    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+#    Properties:
+#      Name: ECS-first-run-alb
+#      SecurityGroups:
+#        - !Ref AlbSecurityGroup
+#      Subnets:
+#        - !Ref PubSubnetAz1
+#        - !Ref PubSubnetAz2
+#      Scheme: internet-facing
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -37,13 +54,21 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref Name
-
+#대상 그룹 LoadBalancer의 리스너와 결합
+#  DefaultTargetGroup:
+#    Condition: CreateELB
+#    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+#    Properties:
+#      Name: !Ref TargetGroupName
+#      VpcId: !Ref Vpc
+#      Port: !Ref ElbPort
+#      Protocol: HTTP
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     DependsOn: LoadBalancer
     Properties:
       VpcId: !Ref VpcId
-      Port: 80
+      Port: !Ref ElbPort
       Protocol: HTTP
       Matcher:
         HttpCode: 200-299
@@ -58,17 +83,28 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref Name
-          
+#로드벤런싱 리스너
+#LoadBalancerListener:
+#    조건
+#    Condition: CreateELB 
+#    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+#    Properties:
+#      LoadBalancerArn: !Ref EcsElasticLoadBalancer
+#      Port: !Ref ElbPort
+#      Protocol: HTTP
+#      DefaultActions:
+#        - Type: forward
+#          TargetGroupArn: !Ref DefaultTargetGroup
   LoadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn: !Ref LoadBalancer
-      Port: 80
+      Port: !Ref ElbPort
       Protocol: HTTP
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref TargetGroup
-          
+
   ListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
@@ -81,7 +117,6 @@ Resources:
       Actions:
         - TargetGroupArn: !Ref TargetGroup
           Type: forward
-
 
 Outputs:
   TargetGroup:

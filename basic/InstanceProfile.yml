@@ -7,29 +7,39 @@ Parameters:
     Type: String
     Default: ec2.amazonaws.com
     
+  S3TemplateUrl:
+    Type: String
+    Default: https://s3-ap-southeast-2.amazonaws.com/cfn-template-ctc94
+    Description: S3Template directory.
 Resources:
-  
+#  ServiceRole:
+#    Type: AWS::IAM::Role
+#    Properties:
+#      Path: /
+#      AssumeRolePolicyDocument: !Sub |
+#        {
+#            "Statement": [{
+#                "Effect": "Allow",
+#                "Principal": { "Service": [ "${Service}" ]},
+#                "Action": [ "sts:AssumeRole" ]
+#            }]
+#        }
+#      ManagedPolicyArns:
+#        - !Sub arn:aws:iam::aws:policy/service-role/${ManagedPolicy}
   ServiceRole:
-    Type: AWS::IAM::Role
+    Type: AWS::CloudFormation::Stack
     Properties:
-      Path: /
-      AssumeRolePolicyDocument: !Sub |
-        {
-            "Statement": [{
-                "Effect": "Allow",
-                "Principal": { "Service": [ "${Service}" ]},
-                "Action": [ "sts:AssumeRole" ]
-            }]
-        }
-      ManagedPolicyArns:
-        - !Sub arn:aws:iam::aws:policy/service-role/${ManagedPolicy}
+      TemplateURL: !Sub ${S3TemplateUrl}/basic/ServiceRole.yml
+      Parameters:
+        Service: ec2.amazonaws.com
+        ManagedPolicy: AmazonEC2ContainerServiceforEC2Role
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       Path: /
       Roles:
-        - !Ref ServiceRole
+        - !GetAtt ServiceRole.Outputs.ServiceRole
 
 Outputs: 
   InstanceProfile: 
